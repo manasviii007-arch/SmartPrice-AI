@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.chatEndpoint = void 0;
+exports.insightEndpoint = exports.chatEndpoint = void 0;
 const ai_service_1 = require("./ai.service");
 const chatEndpoint = async (req, res) => {
     var _a;
@@ -22,4 +22,20 @@ const chatEndpoint = async (req, res) => {
     }
 };
 exports.chatEndpoint = chatEndpoint;
+const insightEndpoint = async (req, res) => {
+    try {
+        const { query, currentPrice, originalPrice } = req.body;
+        if (!query || !currentPrice) {
+            res.status(400).json({ error: "Missing parameters" });
+            return;
+        }
+        const result = await (0, ai_service_1.generateInsight)(query, currentPrice, originalPrice || currentPrice);
+        res.json(result);
+    }
+    catch (error) {
+        console.error('Insight error:', error);
+        res.status(500).json({ error: 'Failed to generate insight' });
+    }
+};
+exports.insightEndpoint = insightEndpoint;
 //# sourceMappingURL=ai.controller.js.map

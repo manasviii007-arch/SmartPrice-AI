@@ -1,6 +1,11 @@
-import { db } from '../config/firebase';
+import { db, isFirebaseConnected } from '../config/firebase';
 
 export const trackProduct = async (userId: string, productId: string, targetPrice: number) => {
+  if (!isFirebaseConnected) {
+    console.log("[MOCK] Tracking product:", { userId, productId, targetPrice });
+    return { trackId: `mock_${userId}_${productId}` };
+  }
+
   // Create or update tracked item
   const trackId = `${userId}_${productId}`;
   
@@ -16,6 +21,11 @@ export const trackProduct = async (userId: string, productId: string, targetPric
 };
 
 export const getTrackedProducts = async (userId: string) => {
+  if (!isFirebaseConnected) {
+    console.log("[MOCK] Getting tracked products for:", userId);
+    return [];
+  }
+
   const snapshot = await db.collection('tracked')
     .where('userId', '==', userId)
     .where('active', '==', true)

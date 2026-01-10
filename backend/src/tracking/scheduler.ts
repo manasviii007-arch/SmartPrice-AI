@@ -3,7 +3,7 @@ import { db } from '../config/firebase';
 import { comparePrices } from '../prices/prices.service';
 
 // Run every day at 9:00 AM
-export const checkPriceDrops = functions.pubsub.schedule('every 24 hours').onRun(async (context) => {
+export const checkPriceDrops = functions.pubsub.schedule('every 24 hours').onRun(async () => {
   console.log('Running scheduled price check...');
   
   try {

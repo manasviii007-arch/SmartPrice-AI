@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { chatEndpoint } from './ai.controller';
+import { chatEndpoint, insightEndpoint } from './ai.controller';
 
 const router = Router();
 
@@ -9,5 +9,6 @@ const router = Router();
 // No, let's stick to requirements: POST /api/chat Body: { userId, message }
 // So I won't force verifyToken on the route itself to be strict, but in a real app I would.
 router.post('/', chatEndpoint);
+router.post('/insight', insightEndpoint);
 
 export default router;

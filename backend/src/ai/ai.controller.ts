@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { handleChat } from './ai.service';
+import { handleChat, generateInsight } from './ai.service';
 
 export const chatEndpoint = async (req: Request, res: Response) => {
   try {
@@ -20,5 +20,22 @@ export const chatEndpoint = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Chat error:', error);
     res.status(500).json({ error: error.message || 'Failed to generate response' });
+  }
+};
+
+export const insightEndpoint = async (req: Request, res: Response) => {
+  try {
+    const { query, currentPrice, originalPrice } = req.body;
+    
+    if (!query || !currentPrice) {
+       res.status(400).json({ error: "Missing parameters" });
+       return;
+    }
+
+    const result = await generateInsight(query, currentPrice, originalPrice || currentPrice);
+    res.json(result);
+  } catch (error: any) {
+    console.error('Insight error:', error);
+    res.status(500).json({ error: 'Failed to generate insight' });
   }
 };

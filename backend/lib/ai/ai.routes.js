@@ -9,5 +9,6 @@ const router = (0, express_1.Router)();
 // No, let's stick to requirements: POST /api/chat Body: { userId, message }
 // So I won't force verifyToken on the route itself to be strict, but in a real app I would.
 router.post('/', ai_controller_1.chatEndpoint);
+router.post('/insight', ai_controller_1.insightEndpoint);
 exports.default = router;
 //# sourceMappingURL=ai.routes.js.map

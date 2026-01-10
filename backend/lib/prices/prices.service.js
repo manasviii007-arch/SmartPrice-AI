@@ -11,15 +11,22 @@ const comparePrices = async (query, directUrl) => {
     // Use a hash or simpler key for actual production
     // Clean up key to be safe for document ID
     const safeDocId = cacheKey.replace(/\//g, '_').substring(0, 255);
-    const cachedDoc = await firebase_1.db.collection('price_cache').doc(safeDocId).get();
-    if (cachedDoc.exists) {
-        const data = cachedDoc.data();
-        const now = new Date().getTime();
-        const cachedTime = new Date(data === null || data === void 0 ? void 0 : data.timestamp).getTime();
-        // 24h cache validity
-        if (now - cachedTime < 24 * 60 * 60 * 1000) {
-            console.log('Returning cached result for', query);
-            return data;
+    if (firebase_1.isFirebaseConnected) {
+        try {
+            const cachedDoc = await firebase_1.db.collection('price_cache').doc(safeDocId).get();
+            if (cachedDoc.exists) {
+                const data = cachedDoc.data();
+                const now = new Date().getTime();
+                const cachedTime = new Date(data === null || data === void 0 ? void 0 : data.timestamp).getTime();
+                // 24h cache validity
+                if (now - cachedTime < 24 * 60 * 60 * 1000) {
+                    console.log('Returning cached result for', query);
+                    return data;
+                }
+            }
+        }
+        catch (error) {
+            console.warn("Cache read failed (ignoring):", error);
         }
     }
     // 2. Query Providers
@@ -42,7 +49,12 @@ const comparePrices = async (query, directUrl) => {
         timestamp: new Date().toISOString()
     };
     // 4. Save to Cache
-    await firebase_1.db.collection('price_cache').doc(safeDocId).set(responseData);
+    try {
+        await firebase_1.db.collection('price_cache').doc(safeDocId).set(responseData);
+    }
+    catch (error) {
+        console.warn("Cache write failed (ignoring):", error);
+    }
     return responseData;
 };
 exports.comparePrices = comparePrices;

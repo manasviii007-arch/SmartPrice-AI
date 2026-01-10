@@ -1,4 +1,4 @@
-import { db } from '../config/firebase';
+import { db, isFirebaseConnected } from '../config/firebase';
 import { AmazonProvider } from './providers/amazon';
 import { FlipkartProvider } from './providers/flipkart';
 import { ProductPrice } from './providers/index';
@@ -13,22 +13,28 @@ export const comparePrices = async (query: string, directUrl?: string) => {
   // Clean up key to be safe for document ID
   const safeDocId = cacheKey.replace(/\//g, '_').substring(0, 255); 
   
-  const cachedDoc = await db.collection('price_cache').doc(safeDocId).get();
-  
-  if (cachedDoc.exists) {
-    const data = cachedDoc.data();
-    const now = new Date().getTime();
-    const cachedTime = new Date(data?.timestamp).getTime();
-    
-    // 24h cache validity
-    if (now - cachedTime < 24 * 60 * 60 * 1000) {
-      console.log('Returning cached result for', query);
-      return data as {
-        product: string;
-        cheapest: ProductPrice;
-        all_prices: ProductPrice[];
-        timestamp: string;
-      };
+  if (isFirebaseConnected) {
+    try {
+      const cachedDoc = await db.collection('price_cache').doc(safeDocId).get();
+      
+      if (cachedDoc.exists) {
+        const data = cachedDoc.data();
+        const now = new Date().getTime();
+        const cachedTime = new Date(data?.timestamp).getTime();
+        
+        // 24h cache validity
+        if (now - cachedTime < 24 * 60 * 60 * 1000) {
+          console.log('Returning cached result for', query);
+          return data as {
+            product: string;
+            cheapest: ProductPrice;
+            all_prices: ProductPrice[];
+            timestamp: string;
+          };
+        }
+      }
+    } catch (error) {
+      console.warn("Cache read failed (ignoring):", error);
     }
   }
 
@@ -56,7 +62,11 @@ export const comparePrices = async (query: string, directUrl?: string) => {
   };
 
   // 4. Save to Cache
-  await db.collection('price_cache').doc(safeDocId).set(responseData);
+  try {
+    await db.collection('price_cache').doc(safeDocId).set(responseData);
+  } catch (error) {
+    console.warn("Cache write failed (ignoring):", error);
+  }
 
   return responseData;
 };
