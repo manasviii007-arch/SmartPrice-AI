@@ -2,6 +2,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { AmazonProvider } from "./prices/providers/amazon";
 import { FlipkartProvider } from "./prices/providers/flipkart";
@@ -9,11 +10,22 @@ import { MockProvider } from "./prices/providers/mock";
 import { ProductPrice } from "./prices/providers/index";
 
 admin.initializeApp();
-const db = admin.firestore();
+// Helper to safely get Firestore (mock if fails, e.g. no creds)
+let db: admin.firestore.Firestore | null = null;
+try {
+    db = admin.firestore();
+} catch (e) {
+    console.warn("Firestore init failed (likely missing credentials). Running in limited mode.");
+}
 
 const app = express();
-app.use(cors({ origin: true }));
+
+// Security Middleware
+app.use(helmet()); 
+app.use(cors({ origin: true })); // Allow all origins for hackathon demo; restrict in production
 app.use(express.json());
+
+const router = express.Router();
 
 // Initialize Providers
 const providers = [
@@ -47,7 +59,7 @@ function normalizeProduct(listings: ProductPrice[]) {
 }
 
 // API: Compare Prices
-app.post("/compare-price", async (req, res) => {
+router.post("/compare-price", async (req, res) => {
     try {
         const { query } = req.body;
         if (!query) {
@@ -82,7 +94,7 @@ app.post("/compare-price", async (req, res) => {
 });
 
 // API: Gemini Advice
-app.post("/chat-advice", async (req, res) => {
+router.post("/chat-advice", async (req, res) => {
     try {
         const { query, data, context } = req.body;
         const apiKey = process.env.GEMINI_API_KEY;
@@ -149,7 +161,7 @@ app.post("/chat-advice", async (req, res) => {
 });
 
 // API: Save Deal
-app.post("/save-deal", async (req, res) => {
+router.post("/save-deal", async (req, res) => {
     try {
         const { userId, deal } = req.body;
         if (!userId || !deal) {
@@ -157,12 +169,18 @@ app.post("/save-deal", async (req, res) => {
              return;
         }
 
-        await db.collection('users').doc(userId).collection('savedDeals').add({
-            ...deal,
-            savedAt: admin.firestore.FieldValue.serverTimestamp()
-        });
+        if (db) {
+            await db.collection('users').doc(userId).collection('savedDeals').add({
+                ...deal,
+                savedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            res.json({ success: true });
+        } else {
+            // Mock success if no DB
+            console.warn("Firestore not initialized, mocking save");
+            res.json({ success: true, mocked: true });
+        }
 
-        res.json({ success: true });
     } catch (error) {
         console.error("Save Deal Error:", error);
         res.status(500).json({ error: "Database Error" });
@@ -170,7 +188,7 @@ app.post("/save-deal", async (req, res) => {
 });
 
 // API: Get History
-app.get("/search-history", async (req, res) => {
+router.get("/search-history", async (req, res) => {
     try {
         const { userId } = req.query;
         if (!userId) {
@@ -178,13 +196,17 @@ app.get("/search-history", async (req, res) => {
              return;
         }
 
-        const snapshot = await db.collection('users').doc(String(userId)).collection('history')
-            .orderBy('timestamp', 'desc')
-            .limit(10)
-            .get();
+        if (db) {
+            const snapshot = await db.collection('users').doc(String(userId)).collection('history')
+                .orderBy('timestamp', 'desc')
+                .limit(10)
+                .get();
 
-        const history = snapshot.docs.map(doc => doc.data());
-        res.json({ history });
+            const history = snapshot.docs.map(doc => doc.data());
+            res.json({ history });
+        } else {
+             res.json({ history: [] });
+        }
 
     } catch (error) {
         console.error("History Error:", error);
@@ -193,7 +215,7 @@ app.get("/search-history", async (req, res) => {
 });
 
 // API: Add History
-app.post("/search-history", async (req, res) => {
+router.post("/search-history", async (req, res) => {
     try {
         const { userId, query } = req.body;
         if (!userId || !query) {
@@ -201,15 +223,32 @@ app.post("/search-history", async (req, res) => {
              return;
         }
 
-        await db.collection('users').doc(userId).collection('history').add({
-            query,
-            timestamp: admin.firestore.FieldValue.serverTimestamp()
-        });
+        if (db) {
+            await db.collection('users').doc(userId).collection('history').add({
+                query,
+                timestamp: admin.firestore.FieldValue.serverTimestamp()
+            });
+            res.json({ success: true });
+        } else {
+             res.json({ success: true, mocked: true });
+        }
 
-        res.json({ success: true });
     } catch (error) {
          res.status(500).json({ error: "Database Error" });
     }
 });
 
+// Mount the router
+app.use("/api", router);
+app.use("/", router);
+
+// Export for Firebase
 export const api = functions.https.onRequest(app);
+
+// Start Server for Render / Standalone
+if (require.main === module) {
+    const port = process.env.PORT || 3000;
+    app.listen(port, () => {
+        console.log(`Server running on port ${port}`);
+    });
+}

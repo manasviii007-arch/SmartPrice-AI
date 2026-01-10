@@ -3,8 +3,11 @@ export interface ProductPrice {
   price: number;
   currency: string;
   url: string;
+  title: string;
   discount?: string;
-  title?: string;
+  delivery?: string;
+  rating?: string;
+  icon?: string;
 }
 
 export interface PriceProvider {
