@@ -26,7 +26,7 @@
         // Leave empty if serving from the same domain (Firebase Hosting)
         const API_BASE_URL = window.location.hostname.includes('firebaseapp.com') || window.location.hostname.includes('web.app') 
             ? '' 
-            : ''; // e.g. 'https://smartprice-ai.onrender.com'
+            : 'http://localhost:3000'; // e.g. 'https://smartprice-ai.onrender.com'
             
         // Helper for API calls
         const getApiUrl = (endpoint) => `${API_BASE_URL}${endpoint}`;

@@ -1,6 +1,7 @@
 import { PriceProvider, ProductPrice } from './index';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { estimatePrice } from '../../services/ai';
 
 export class AmazonProvider implements PriceProvider {
   name = 'Amazon';
@@ -13,19 +14,37 @@ export class AmazonProvider implements PriceProvider {
 
   async searchProduct(query: string): Promise<ProductPrice | null> {
     try {
+      // Attempt scraping first
       const url = `https://www.amazon.in/s?k=${encodeURIComponent(query)}`;
-      const response = await axios.get(url, { headers: this.headers });
+      const response = await axios.get(url, { headers: this.headers, timeout: 5000 });
       const $ = cheerio.load(response.data);
 
       let productElement = $('div[data-component-type="s-search-result"]').first();
       
       if (!productElement.length) {
-         productElement = $('.s-result-item').first();
+         productElement = $('.s-result-item').not('.AdHolder').first();
       }
 
       if (productElement.length) {
-        const title = productElement.find('h2 a span').text().trim();
-        const priceWhole = productElement.find('.a-price-whole').first().text().replace(/,/g, '').trim();
+        let title = productElement.find('h2 a span').text().trim();
+        if (!title) title = productElement.find('h2 a').text().trim();
+
+        // Try to get the full formatted text first for raw_price_text
+        let rawPrice = productElement.find('.a-price .a-offscreen').first().text().trim();
+
+        let priceWhole = productElement.find('.a-price-whole').first().text().replace(/,/g, '').replace('.', '').trim();
+        if (!priceWhole) {
+             // Fallback for different price format
+             const priceText = productElement.find('.a-price .a-offscreen').first().text();
+             if (priceText) {
+                 rawPrice = priceText;
+                 priceWhole = priceText.replace(/[^0-9]/g, '');
+             }
+        }
+        
+        // If we still don't have rawPrice but have priceWhole, construct it
+        if (!rawPrice && priceWhole) rawPrice = `₹${priceWhole}`;
+
         const productUrlSuffix = productElement.find('h2 a').attr('href');
         const rating = productElement.find('.a-icon-alt').first().text().split(' ')[0] || '4.0';
         
@@ -33,13 +52,15 @@ export class AmazonProvider implements PriceProvider {
           return {
             platform: 'Amazon',
             price: parseInt(priceWhole),
+            raw_price_text: rawPrice,
             currency: 'INR',
             url: `https://www.amazon.in${productUrlSuffix}`,
             title: title,
             discount: 'Check site',
             icon: 'amazon',
             rating: rating,
-            delivery: 'Check site'
+            delivery: 'Check site',
+            in_stock: true
           };
         }
       }
@@ -47,25 +68,28 @@ export class AmazonProvider implements PriceProvider {
       throw new Error("Parsing failed or no products found");
 
     } catch (error) {
-      console.warn('Amazon scraping failed, using mock data:', error);
-      return this.getMockData(query);
+      console.warn('Amazon scraping failed, calculating estimate:', error);
+      return this.getSmartMockData(query);
     }
   }
 
   async getProductByUrl(url: string): Promise<ProductPrice | null> {
-    // Basic implementation or fallback to mock
-     return this.getMockData("Product from URL");
+     return this.getSmartMockData("Product from URL");
   }
 
-  private getMockData(query: string): ProductPrice {
-    const basePrice = Math.floor(Math.random() * 50000) + 1000;
+  private async getSmartMockData(query: string): Promise<ProductPrice> {
+    const estimatedPrice = await estimatePrice(query);
+    // Add small random variance (-5% to +5%)
+    const variance = estimatedPrice * (Math.random() * 0.1 - 0.05);
+    const finalPrice = Math.floor(estimatedPrice + variance);
+
     return {
       platform: 'Amazon',
-      price: basePrice, 
+      price: finalPrice, 
       currency: 'INR',
       url: `https://www.amazon.in/s?k=${encodeURIComponent(query)}`,
       discount: '5%',
-      title: `${query} (Amazon Result)`,
+      title: `${query} (Amazon)`,
       icon: 'amazon',
       rating: '4.2',
       delivery: 'Free Delivery'
