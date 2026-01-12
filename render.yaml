@@ -4,9 +4,11 @@ services:
     env: node
     rootDir: backend
     buildCommand: npm install && npm run build
-    startCommand: node lib/index.js
+    startCommand: npm run start
     autoDeploy: true
     healthCheckPath: /
     envVars:
       - key: GEMINI_API_KEY
         value: REPLACE_WITH_YOUR_KEY
+      - key: SERVE_FRONTEND
+        value: "false"
