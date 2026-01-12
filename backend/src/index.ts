@@ -1,9 +1,9 @@
-import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import path from "path";
 import { AmazonProvider } from "./prices/providers/amazon";
 import { FlipkartProvider } from "./prices/providers/flipkart";
 import { SnapdealProvider } from "./prices/providers/snapdeal";
@@ -218,8 +218,27 @@ router.post("/search-history", async (req, res) => {
 app.use("/api", router);
 app.use("/", router);
 
-// Export for Firebase
-export const api = functions.https.onRequest(app);
+// Serve Frontend static files
+const frontendPath = path.join(__dirname, "../../frontend");
+app.use(express.static(frontendPath));
+// SPA fallback
+app.get("*", (_req, res) => {
+    res.sendFile(path.join(frontendPath, "index.html"));
+});
+
+// Export for Firebase (loaded only when available)
+let functionsModule: any = null;
+try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    functionsModule = require("firebase-functions");
+} catch (e) {
+    functionsModule = null;
+}
+let api: any = undefined;
+if (functionsModule && functionsModule.https && functionsModule.https.onRequest) {
+    api = functionsModule.https.onRequest(app);
+}
+export { api };
 
 // Start Server for Render / Standalone
 if (require.main === module) {

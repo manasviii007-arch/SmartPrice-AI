@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.estimatePrice = estimatePrice;
-exports.getShoppingAdvice = getShoppingAdvice;
+exports.getShoppingAdvice = exports.estimatePrice = void 0;
 const generative_ai_1 = require("@google/generative-ai");
 require("dotenv/config");
 const apiKey = process.env.GEMINI_API_KEY;
@@ -71,6 +70,7 @@ async function estimatePrice(query) {
         return getFallbackPrice(query);
     }
 }
+exports.estimatePrice = estimatePrice;
 async function getShoppingAdvice(query, data, context) {
     if (!model) {
         return context === 'chat'
@@ -125,4 +125,5 @@ async function getShoppingAdvice(query, data, context) {
         }
     }
 }
+exports.getShoppingAdvice = getShoppingAdvice;
 //# sourceMappingURL=ai.js.map

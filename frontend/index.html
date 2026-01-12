@@ -22,13 +22,8 @@
 
     <!-- App Configuration -->
     <script>
-        // CHANGE THIS URL IF DEPLOYING BACKEND SEPARATELY (e.g. Render)
-        // Leave empty if serving from the same domain (Firebase Hosting)
-        const API_BASE_URL = window.location.hostname.includes('firebaseapp.com') || window.location.hostname.includes('web.app') 
-            ? '' 
-            : 'http://localhost:3000'; // e.g. 'https://smartprice-ai.onrender.com'
-            
-        // Helper for API calls
+        // Use same-origin API for both local and production (backend serves frontend)
+        const API_BASE_URL = '';
         const getApiUrl = (endpoint) => `${API_BASE_URL}${endpoint}`;
     </script>
 

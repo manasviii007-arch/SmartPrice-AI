@@ -15,34 +15,24 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.api = void 0;
-const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 require("dotenv/config");
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
+const path_1 = __importDefault(require("path"));
 const amazon_1 = require("./prices/providers/amazon");
 const flipkart_1 = require("./prices/providers/flipkart");
 const snapdeal_1 = require("./prices/providers/snapdeal");
@@ -228,8 +218,27 @@ router.post("/search-history", async (req, res) => {
 // Mount the router
 app.use("/api", router);
 app.use("/", router);
-// Export for Firebase
-exports.api = functions.https.onRequest(app);
+// Serve Frontend static files
+const frontendPath = path_1.default.join(__dirname, "../../frontend");
+app.use(express_1.default.static(frontendPath));
+// SPA fallback
+app.get("*", (_req, res) => {
+    res.sendFile(path_1.default.join(frontendPath, "index.html"));
+});
+// Export for Firebase (loaded only when available)
+let functionsModule = null;
+try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    functionsModule = require("firebase-functions");
+}
+catch (e) {
+    functionsModule = null;
+}
+let api = undefined;
+exports.api = api;
+if (functionsModule && functionsModule.https && functionsModule.https.onRequest) {
+    exports.api = api = functionsModule.https.onRequest(app);
+}
 // Start Server for Render / Standalone
 if (require.main === module) {
     const port = process.env.PORT || 3000;
